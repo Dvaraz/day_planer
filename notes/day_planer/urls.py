@@ -11,4 +11,7 @@ urlpatterns = [
     path('notes/<int:note_id>/', views.NoteEditorView.as_view(), name='note_editor'),
     path('note/add/', views.NoteEditorView.as_view(), name='note_post'),
     path('about/', views.day_planer_version, name='version'),
+
+    path('note/comment/<int:note_id>/', views.CommentDetailView.as_view(), name='comment_add'),
+    path('note/comment/<int:comment_id>/', views.CommentDetailView.as_view(), name='comment_del'),
 ]

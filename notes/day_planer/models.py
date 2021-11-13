@@ -23,4 +23,15 @@ class Note(models.Model):
     status = models.IntegerField(default=0, choices=STATUS, verbose_name='Status')
 
     def __str__(self):
-        return f'{self.get_status_display()}: {self.date_add or "No comments"}'
+        return f'{self.title}: {self.date_add or "No comments"}'
+
+
+class Comment(models.Model):
+    title = models.CharField(max_length=128, verbose_name='comment_title')
+    text = models.TextField(default="", verbose_name="comment_text")
+    date_add = models.DateTimeField(auto_now_add=True, verbose_name="comment_time_add")
+    author = models.ForeignKey(User, on_delete=models.CASCADE)
+    note = models.ForeignKey(Note, related_name='comment', on_delete=models.CASCADE)
+
+    def __str__(self):
+        return self.title

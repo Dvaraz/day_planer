@@ -8,15 +8,17 @@ from django.utils import timezone
 from django.shortcuts import render
 
 from django.conf import settings
-from .models import Note
-from .serializers import NotesSerializer, QuerySerializer, NoteEditorSerializer, NoteDetailSerializer
+from .models import Note, Comment
+from .serializers import NotesSerializer, QuerySerializer, NoteEditorSerializer, NoteDetailSerializer, CommentsSerializer, CommentAddSerializer
 
 
 class NotesView(APIView):
+    permission_classes = (IsAuthenticated,)
+
 
     def get(self, request):
 
-        notes = Note.objects.filter(public=True).order_by('date_add', '-important', ).select_related('author')
+        notes = Note.objects.filter(Q(author=request.user) | Q(public=True)).order_by('date_add', '-important', ).select_related('author')
 
         query_params = QuerySerializer(data=request.query_params)
         if query_params.is_valid():
@@ -26,27 +28,16 @@ class NotesView(APIView):
                 notes = notes.filter(
                     Q(important__in=query_params.data['important']) & Q(status__in=query_params.data['status'])
                     & Q(public__in=query_params.data['public']))
-            # Filter for status and important
-            elif query_params.data.get('status') and query_params.data.get('important'):
-                notes = notes.filter(
-                    Q(important__in=query_params.data['important']) & Q(status__in=query_params.data['status']))
-            # Filter for public and status
-            elif query_params.data.get('status') and query_params.data.get('public'):
-                notes = notes.filter(
-                    Q(public__in=query_params.data['public']) & Q(status__in=query_params.data['status']))
-            # Filter for important and public
-            elif query_params.data.get('important') and query_params.data.get('public'):
-                notes = notes.filter(
-                    Q(public__in=query_params.data['public']) & Q(important__in=query_params.data['important']))
-            # Filter for status
-            elif query_params.data.get('status'):
+
+            if query_params.data.get('status'):
                 notes = notes.filter(status__in=query_params.data['status'])
-            # Filter for important
-            elif query_params.data.get('important'):
+
+            if query_params.data.get('important') is not None:
                 notes = notes.filter(important__in=query_params.data['important'])
-            # Filter for public
-            elif query_params.data.get('public'):
+
+            if query_params.data.get('public') is not None:
                 notes = notes.filter(public__in=query_params.data['public'])
+
         else:
             return Response(query_params.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -109,6 +100,29 @@ class NoteDetailView(APIView):
         serializer = NoteDetailSerializer(note)
 
         return Response(serializer.data)
+
+
+class CommentDetailView(APIView):
+
+    permission_classes = (IsAuthenticated, )
+
+    def post(self, request, note_id):
+
+        note = Note.objects.filter(Q(public=True) & Q(pk=note_id)).first()
+        if not note:
+            raise NotFound(f'Статья с id={note_id} не найдена')
+
+        new_comment = CommentAddSerializer(data=request.data)
+        if new_comment.is_valid():
+            new_comment.save(note=note, author=request.user)
+            return Response(new_comment.data, status=status.HTTP_201_CREATED)
+        else:
+            return Response(new_comment.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def delete(self, request, comment_id):
+        comment = Comment.objects.filter(pk=comment_id, author=request.user)
+        comment.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 def day_planer_version(request):
