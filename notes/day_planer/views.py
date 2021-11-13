@@ -16,7 +16,7 @@ class NotesView(APIView):
 
     def get(self, request):
 
-        notes = Note.objects.filter(public=True).order_by('date_add', '-important', )
+        notes = Note.objects.filter(public=True).order_by('date_add', '-important', ).select_related('author')
 
         query_params = QuerySerializer(data=request.query_params)
         if query_params.is_valid():
